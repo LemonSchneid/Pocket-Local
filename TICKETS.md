@@ -333,6 +333,8 @@ Helpers:
 
 **DoD:** App opens offline.
 
+**Status:** Complete — enabled PWA registration and Workbox app shell precaching for offline load.
+
 ---
 
 ### T5.2 — Asset (image) caching

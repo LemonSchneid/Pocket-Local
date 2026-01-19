@@ -8,8 +8,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      injectRegister: "auto",
+      injectRegister: null,
       registerType: "autoUpdate",
+      includeAssets: ["vite.svg"],
       manifest: {
         name: "Pocket Local",
         short_name: "Pocket Local",
@@ -19,6 +20,7 @@ export default defineConfig({
         theme_color: "#111827",
       },
       workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
         navigateFallback: "/index.html",
       },
     }),
