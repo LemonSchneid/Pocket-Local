@@ -141,6 +141,8 @@ Helpers:
 
 **DoD:** Article still renders perfectly.
 
+**Status:** Complete — reader status messaging reflects whether saved content is available offline.
+
 ---
 
 # 📥 EPIC 2 — Pocket Import (MAGIC MOMENT)

@@ -22,6 +22,7 @@ function ReaderPage() {
   const [preferences, setPreferences] = useState<ReaderPreferences>(
     defaultReaderPreferences,
   );
+  const hasSavedContent = Boolean(article?.content_html);
 
   useEffect(() => {
     let isActive = true;
@@ -119,8 +120,12 @@ function ReaderPage() {
   };
 
   const statusMessage = isOnline
-    ? "You're online. Saved articles remain available offline."
-    : "You're offline. Viewing saved articles from local storage.";
+    ? hasSavedContent
+      ? "You're online. Saved content is ready for offline reading."
+      : "You're online. This article has no saved content yet."
+    : hasSavedContent
+      ? "You're offline. Viewing saved articles from local storage."
+      : "You're offline. This article is missing saved content; reconnect to load it.";
 
   return (
     <section
