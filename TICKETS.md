@@ -77,6 +77,8 @@ Routes:
 * Routes switch without reload
 * No routing errors
 
+**Status:** Complete — added routed shell layout with placeholder pages for core sections.
+
 ---
 
 # 📚 EPIC 1 — Reader Core (EXISTENTIAL)
