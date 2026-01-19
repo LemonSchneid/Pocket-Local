@@ -347,6 +347,8 @@ Helpers:
 
 **DoD:** Images render offline.
 
+**Status:** Complete — cached article images into IndexedDB assets and rewrote HTML to use local blob URLs.
+
 ---
 
 ### T5.3 — Storage usage + persistence

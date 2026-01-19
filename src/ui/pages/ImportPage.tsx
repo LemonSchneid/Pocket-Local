@@ -1,7 +1,7 @@
 import { type ChangeEvent, useMemo, useState } from "react";
 
 import type { ParseStatus } from "../../db";
-import { createArticle } from "../../db/articles";
+import { createArticle, updateArticle } from "../../db/articles";
 import {
   completeImportJob,
   createImportJob,
@@ -13,6 +13,7 @@ import {
   fetchArticlesWithConcurrency,
   type FetchArticleResult,
 } from "../../import/fetchArticleHtml";
+import { cacheArticleAssets } from "../../import/cacheArticleAssets";
 import { parseArticleHtml } from "../../import/parseArticleHtml";
 import {
   parsePocketExport,
@@ -202,6 +203,16 @@ function ImportPage() {
               content_text: parsed.content_text,
               parse_status: parsed.parse_status,
             });
+            const cachedAssets = await cacheArticleAssets({
+              articleId: article.id,
+              articleUrl: item.url,
+              contentHtml: parsed.content_html,
+            });
+            if (cachedAssets.contentHtml !== parsed.content_html) {
+              await updateArticle(article.id, {
+                content_html: cachedAssets.contentHtml,
+              });
+            }
             await addTagsToArticle(article.id, item.tags);
             if (importJobId) {
               await recordImportJobResult(importJobId, "success");

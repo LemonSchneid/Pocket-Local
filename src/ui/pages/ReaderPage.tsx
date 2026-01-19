@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 
 import { getArticleById, markRead } from "../../db/articles";
 import type { Article, Tag } from "../../db";
+import { listAssetsForArticle } from "../../db/assets";
 import {
   createTag,
   getTagsForArticle,
@@ -33,6 +34,7 @@ function ReaderPage() {
   const [newTagName, setNewTagName] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
   const [isTagSaving, setIsTagSaving] = useState(false);
+  const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const hasSavedContent = Boolean(article?.content_html);
 
   useEffect(() => {
@@ -84,6 +86,41 @@ function ReaderPage() {
       isActive = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    let isActive = true;
+    let createdUrls: Record<string, string> = {};
+
+    const loadAssets = async () => {
+      if (!article) {
+        setAssetUrls({});
+        return;
+      }
+
+      try {
+        const assets = await listAssetsForArticle(article.id);
+        createdUrls = Object.fromEntries(
+          assets.map((asset) => [asset.id, URL.createObjectURL(asset.blob)]),
+        );
+        if (isActive) {
+          setAssetUrls(createdUrls);
+        } else {
+          Object.values(createdUrls).forEach((url) => URL.revokeObjectURL(url));
+        }
+      } catch {
+        if (isActive) {
+          setAssetUrls({});
+        }
+      }
+    };
+
+    loadAssets();
+
+    return () => {
+      isActive = false;
+      Object.values(createdUrls).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [article?.id]);
 
   useEffect(() => {
     let isActive = true;
@@ -375,6 +412,7 @@ function ReaderPage() {
           url={article.url}
           contentHtml={article.content_html}
           preferences={preferences}
+          assetUrls={assetUrls}
         />
       ) : null}
     </section>
