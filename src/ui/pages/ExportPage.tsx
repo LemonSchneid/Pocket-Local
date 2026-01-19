@@ -94,7 +94,7 @@ function ExportPage() {
       return "Add articles before exporting your library.";
     }
     return `${articleCount} articles ready to export.`;
-  }, [articleCount, exportedCount, status]);
+  }, [articleCount, exportedCount, exportMode, status]);
 
   return (
     <section className="page">

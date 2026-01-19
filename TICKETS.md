@@ -397,6 +397,8 @@ Helpers:
 
 **DoD:** ZIP downloads successfully.
 
+**Status:** Complete — added JSZip bundling with ZIP download action on the Export page.
+
 ---
 
 # 🔖 EPIC 7 — Add New Articles (MINIMAL)
