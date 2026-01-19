@@ -384,6 +384,8 @@ Helpers:
 
 **DoD:** Files open cleanly in Obsidian.
 
+**Status:** Complete — added Markdown export generation with YAML frontmatter downloads from the Export page.
+
 ---
 
 ### T6.2 — ZIP bundler
