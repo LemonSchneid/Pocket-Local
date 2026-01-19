@@ -364,6 +364,8 @@ Helpers:
 * Storage info visible
 * Persistence requested
 
+**Status:** Complete — added storage usage estimates with 70% warnings in Settings and requested persistence after the first successful import.
+
 ---
 
 # 📤 EPIC 6 — Export (TRUST COMPLETION)

@@ -2,16 +2,42 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { createTag, deleteTag, listTags } from "../../db/tags";
 import type { Tag } from "../../db";
+import { getStoragePersistenceState } from "../../db/settings";
+
+type StorageInfo = {
+  usageBytes: number;
+  quotaBytes: number;
+  percentUsed: number;
+};
 
 function SettingsPage() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [newTagName, setNewTagName] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
+  const [storageState, setStorageState] = useState<
+    "unknown" | "granted" | "denied" | "unsupported"
+  >("unknown");
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   const loadTags = async () => {
     const items = await listTags();
     setTags(items);
+  };
+
+  const formatBytes = (value: number) => {
+    if (value === 0) {
+      return "0 B";
+    }
+
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    const index = Math.min(
+      units.length - 1,
+      Math.floor(Math.log(value) / Math.log(1024)),
+    );
+    const size = value / 1024 ** index;
+    return `${size.toFixed(size < 10 ? 1 : 0)} ${units[index]}`;
   };
 
   useEffect(() => {
@@ -27,6 +53,39 @@ function SettingsPage() {
         if (isActive) {
           setError("Unable to load tags.");
           setStatus("error");
+        }
+      }
+
+      try {
+        if (!navigator.storage?.estimate) {
+          if (isActive) {
+            setStorageError("Storage usage is not available in this browser.");
+          }
+          return;
+        }
+
+        const estimate = await navigator.storage.estimate();
+        const usageBytes = estimate.usage ?? 0;
+        const quotaBytes = estimate.quota ?? 0;
+        const percentUsed =
+          quotaBytes > 0 ? Math.round((usageBytes / quotaBytes) * 100) : 0;
+        if (isActive) {
+          setStorageInfo({ usageBytes, quotaBytes, percentUsed });
+        }
+      } catch {
+        if (isActive) {
+          setStorageError("Unable to estimate storage usage.");
+        }
+      }
+
+      try {
+        const persistenceState = await getStoragePersistenceState();
+        if (isActive) {
+          setStorageState(persistenceState);
+        }
+      } catch {
+        if (isActive) {
+          setStorageState("unknown");
         }
       }
     };
@@ -84,6 +143,57 @@ function SettingsPage() {
   return (
     <section className="page">
       <h2>Settings</h2>
+      <section className="storage-settings">
+        <div className="storage-settings__header">
+          <h3>Storage</h3>
+          <p>Keep your offline library safe on this device.</p>
+        </div>
+        {storageInfo ? (
+          <div className="storage-settings__usage">
+            <div className="storage-settings__row">
+              <span>
+                Used: {formatBytes(storageInfo.usageBytes)} of{" "}
+                {formatBytes(storageInfo.quotaBytes)}
+              </span>
+              <span>{storageInfo.percentUsed}%</span>
+            </div>
+            <progress
+              value={storageInfo.percentUsed}
+              max={100}
+              className={
+                storageInfo.percentUsed >= 70
+                  ? "storage-settings__progress storage-settings__progress--warn"
+                  : "storage-settings__progress"
+              }
+            />
+            {storageInfo.percentUsed >= 70 && (
+              <p className="storage-settings__warning" role="alert">
+                Warning: you are close to your storage limit. Consider exporting
+                and clearing older items.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="storage-settings__empty">
+            {storageError ?? "Loading storage usage…"}
+          </p>
+        )}
+        <div className="storage-settings__status">
+          <span>Persistence:</span>
+          <strong>
+            {storageState === "granted" && "Enabled"}
+            {storageState === "denied" && "Not granted"}
+            {storageState === "unsupported" && "Not supported"}
+            {storageState === "unknown" && "Pending"}
+          </strong>
+        </div>
+        {storageState === "unknown" && (
+          <p className="storage-settings__note">
+            Persistence will be requested automatically after your first
+            successful import.
+          </p>
+        )}
+      </section>
       <section className="tag-settings">
         <div className="tag-settings__header">
           <h3>Manage tags</h3>

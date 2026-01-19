@@ -19,6 +19,10 @@ import {
   parsePocketExport,
   type ParsedPocketItem,
 } from "../../import/parsePocketExport";
+import {
+  getStoragePersistenceState,
+  setStoragePersistenceState,
+} from "../../db/settings";
 
 type ValidationState =
   | { status: "idle" }
@@ -176,6 +180,9 @@ function ImportPage() {
     setFetchPhase("running");
     setFetchResults({});
 
+    let successCount = 0;
+    let failedCount = 0;
+
     if (importJobId) {
       await updateImportJob(importJobId, { status: "in_progress" });
     }
@@ -194,6 +201,7 @@ function ImportPage() {
           let parseStatus: ParseStatus | undefined;
 
           if (result.status === "success" && result.html && item) {
+            successCount += 1;
             const parsed = parseArticleHtml(result.html);
             parseStatus = parsed.parse_status;
             const article = await createArticle({
@@ -217,8 +225,11 @@ function ImportPage() {
             if (importJobId) {
               await recordImportJobResult(importJobId, "success");
             }
-          } else if (importJobId) {
-            await recordImportJobResult(importJobId, "failed");
+          } else {
+            failedCount += 1;
+            if (importJobId) {
+              await recordImportJobResult(importJobId, "failed");
+            }
           }
 
           setFetchResults((prev) => ({
@@ -233,6 +244,18 @@ function ImportPage() {
 
     if (importJobId) {
       await completeImportJob(importJobId);
+    }
+
+    if (successCount > 0) {
+      const persistenceState = await getStoragePersistenceState();
+      if (persistenceState === "unknown") {
+        if (navigator.storage?.persist) {
+          const persisted = await navigator.storage.persist();
+          await setStoragePersistenceState(persisted ? "granted" : "denied");
+        } else {
+          await setStoragePersistenceState("unsupported");
+        }
+      }
     }
   };
 

@@ -596,7 +596,8 @@
 }
 
 .tag-manager,
-.tag-settings {
+.tag-settings,
+.storage-settings {
   border-radius: 12px;
   border: 1px solid #e3ded7;
   background: #f7f5f2;
@@ -612,13 +613,15 @@
 }
 
 .tag-manager__header h3,
-.tag-settings__header h3 {
+.tag-settings__header h3,
+.storage-settings__header h3 {
   margin: 0;
   font-size: 1.1rem;
 }
 
 .tag-manager__header p,
-.tag-settings__header p {
+.tag-settings__header p,
+.storage-settings__header p {
   margin: 4px 0 0;
   color: #4a4a4a;
   font-size: 0.95rem;
@@ -716,4 +719,58 @@
   border-radius: 12px;
   border: 1px solid #e3ded7;
   background: #ffffff;
+}
+
+.storage-settings__usage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.storage-settings__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 600;
+  color: #2e2e2e;
+}
+
+.storage-settings__progress {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.storage-settings__progress--warn::-webkit-progress-value {
+  background-color: #d14343;
+}
+
+.storage-settings__progress--warn::-moz-progress-bar {
+  background-color: #d14343;
+}
+
+.storage-settings__warning {
+  margin: 0;
+  color: #b42318;
+}
+
+.storage-settings__empty {
+  margin: 0;
+  color: #6b6b6b;
+}
+
+.storage-settings__status {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-weight: 600;
+  color: #2e2e2e;
+}
+
+.storage-settings__note {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 0.95rem;
 }
