@@ -27,6 +27,7 @@ const formatSavedDate = (savedAt: string) => {
 function LibraryPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -68,13 +69,45 @@ function LibraryPage() {
     return `${articles.length} article${articles.length === 1 ? "" : "s"} saved`;
   }, [articles.length, emptyMessage, status]);
 
+  const filteredArticles = useMemo(() => {
+    if (!showUnreadOnly) {
+      return articles;
+    }
+    return articles.filter((article) => !article.is_read);
+  }, [articles, showUnreadOnly]);
+
+  const filterLabel = showUnreadOnly ? "Unread only" : "All articles";
+
   return (
     <section className="page">
       <h2 className="page__title">Library</h2>
       <p className="page__status">{statusMessage}</p>
       {articles.length > 0 ? (
+        <div className="library-filters" role="group" aria-label="Library filter">
+          <button
+            type="button"
+            className={`library-filter__button${
+              showUnreadOnly ? "" : " is-active"
+            }`}
+            onClick={() => setShowUnreadOnly(false)}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`library-filter__button${
+              showUnreadOnly ? " is-active" : ""
+            }`}
+            onClick={() => setShowUnreadOnly(true)}
+          >
+            Unread
+          </button>
+          <span className="library-filter__label">{filterLabel}</span>
+        </div>
+      ) : null}
+      {filteredArticles.length > 0 ? (
         <ul className="library-list">
-          {articles.map((article) => (
+          {filteredArticles.map((article) => (
             <li key={article.id} className="library-item">
               <Link className="library-item__link" to={`/reader/${article.id}`}>
                 <div className="library-item__header">
@@ -100,6 +133,13 @@ function LibraryPage() {
       ) : null}
       {articles.length === 0 && status === "idle" ? (
         <p className="page__status">{emptyMessage}</p>
+      ) : null}
+      {articles.length > 0 &&
+      filteredArticles.length === 0 &&
+      status === "idle" ? (
+        <p className="page__status">
+          No unread articles yet. Switch back to All to view your library.
+        </p>
       ) : null}
     </section>
   );
