@@ -31,6 +31,8 @@ src/
 * App runs locally
 * Blank shell renders without errors
 
+**Status:** Complete — scaffolded Vite + React + TypeScript with ESLint/Prettier configs.
+
 ---
 
 ### T0.2 — IndexedDB schema with Dexie (SOURCE OF TRUTH)
