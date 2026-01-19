@@ -173,6 +173,8 @@ Helpers:
 
 **DoD:** Parsed list visible to user.
 
+**Status:** Complete — parses Pocket export links/tags, creates import job, and previews parsed items.
+
 ---
 
 ### T2.3 — Client-side article fetcher

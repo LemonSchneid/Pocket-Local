@@ -1,66 +1,88 @@
 import { type ChangeEvent, useState } from "react";
 
+import { createImportJob } from "../../db/importJobs";
+import {
+  parsePocketExport,
+  type ParsedPocketItem,
+} from "../../import/parsePocketExport";
+
 type ValidationState =
   | { status: "idle" }
   | { status: "valid"; filename: string; linkCount: number }
   | { status: "invalid"; message: string };
 
-function validatePocketExport(file: File, html: string): ValidationState {
+const buildInvalidState = (message: string): ValidationState => ({
+  status: "invalid",
+  message,
+});
+
+const validatePocketExport = (
+  file: File,
+  items: ParsedPocketItem[],
+): ValidationState => {
   if (file.name !== "ril_export.html") {
-    return {
-      status: "invalid",
-      message: "Please select the original ril_export.html file from Pocket.",
-    };
+    return buildInvalidState(
+      "Please select the original ril_export.html file from Pocket.",
+    );
   }
 
-  const parser = new DOMParser();
-  const document = parser.parseFromString(html, "text/html");
-  const links = Array.from(document.querySelectorAll("a[href]"));
-
-  if (links.length === 0) {
-    return {
-      status: "invalid",
-      message:
-        "We could not find any saved links in this file. Make sure it is a valid Pocket export.",
-    };
+  if (items.length === 0) {
+    return buildInvalidState(
+      "We could not find any saved links in this file. Make sure it is a valid Pocket export.",
+    );
   }
 
   return {
     status: "valid",
     filename: file.name,
-    linkCount: links.length,
+    linkCount: items.length,
   };
-}
+};
 
 function ImportPage() {
   const [validation, setValidation] = useState<ValidationState>({
     status: "idle",
   });
+  const [previewItems, setPreviewItems] = useState<ParsedPocketItem[]>([]);
+  const [importJobId, setImportJobId] = useState<string | null>(null);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    setPreviewItems([]);
+    setImportJobId(null);
+
     if (!file) {
       setValidation({ status: "idle" });
       return;
     }
 
     if (!file.name.endsWith(".html")) {
-      setValidation({
-        status: "invalid",
-        message: "Only HTML files are supported for Pocket exports.",
-      });
+      setValidation(
+        buildInvalidState("Only HTML files are supported for Pocket exports."),
+      );
       return;
     }
 
     try {
       const html = await file.text();
-      setValidation(validatePocketExport(file, html));
+      const parsed = parsePocketExport(html);
+      const nextValidation = validatePocketExport(file, parsed.items);
+
+      if (nextValidation.status === "invalid") {
+        setValidation(nextValidation);
+        return;
+      }
+
+      const job = await createImportJob(parsed.items.length);
+      setValidation(nextValidation);
+      setPreviewItems(parsed.items);
+      setImportJobId(job.id);
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "We could not read that file. Please try again.";
-      setValidation({ status: "invalid", message });
+      setValidation(buildInvalidState(message));
     }
   };
 
@@ -85,6 +107,29 @@ function ImportPage() {
       )}
       {validation.status === "invalid" && (
         <p role="alert">⚠️ {validation.message}</p>
+      )}
+      {validation.status === "valid" && previewItems.length > 0 && (
+        <div className="stack">
+          <div>
+            <h3>Import preview</h3>
+            {importJobId && (
+              <p className="page__status">Import job created: {importJobId}</p>
+            )}
+          </div>
+          <ul className="import-preview">
+            {previewItems.map((item) => (
+              <li key={item.url} className="import-preview__item">
+                <strong>{item.title}</strong>
+                <div className="import-preview__meta">{item.url}</div>
+                {item.tags.length > 0 && (
+                  <div className="import-preview__tags">
+                    Tags: {item.tags.join(", ")}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );
