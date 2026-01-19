@@ -234,6 +234,8 @@ Helpers:
 
 **DoD:** User can watch import progress.
 
+**Status:** Complete — added progress bar, counters, and a non-blocking failures list to the import UI.
+
 ---
 
 # 📚 EPIC 3 — Library View

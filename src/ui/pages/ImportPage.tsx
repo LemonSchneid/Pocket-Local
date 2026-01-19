@@ -116,6 +116,15 @@ function ImportPage() {
     return buildFetchSummary(fetchResults, previewItems.length);
   }, [fetchResults, previewItems.length]);
 
+  const errorResults = useMemo(() => {
+    return Object.values(fetchResults).filter(
+      (result) => result.status !== "success",
+    );
+  }, [fetchResults]);
+
+  const completedCount = fetchSummary.success + fetchSummary.failed;
+  const progressValue = previewItems.length > 0 ? completedCount : 0;
+
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setPreviewItems([]);
@@ -253,13 +262,37 @@ function ImportPage() {
               {fetchPhase === "running" ? "Fetching articles…" : "Fetch articles"}
             </button>
             {fetchPhase !== "idle" && (
-              <p className="page__status">
-                Fetched {fetchSummary.success} / {fetchSummary.total} (Failures:
-                {" "}
-                {fetchSummary.failed})
-              </p>
+              <div className="stack">
+                <div className="import-progress">
+                  <label htmlFor="import-progress" className="page__status">
+                    Progress: {completedCount} / {fetchSummary.total}
+                  </label>
+                  <progress
+                    id="import-progress"
+                    value={progressValue}
+                    max={fetchSummary.total}
+                  />
+                </div>
+                <div className="import-counters">
+                  <span>Imported: {fetchSummary.success}</span>
+                  <span>Failures: {fetchSummary.failed}</span>
+                </div>
+              </div>
             )}
           </div>
+          {fetchPhase !== "idle" && errorResults.length > 0 && (
+            <div className="import-errors">
+              <h4>Failures</h4>
+              <ul>
+                {errorResults.map((result) => (
+                  <li key={result.url}>
+                    <strong>{formatResultStatus(result)}</strong> — {result.url}
+                    {result.error ? ` (${result.error})` : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <ul className="import-preview">
             {previewItems.map((item) => {
               const result = fetchResults[item.url];
