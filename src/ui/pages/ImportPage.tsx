@@ -1,6 +1,10 @@
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, useMemo, useState } from "react";
 
 import { createImportJob } from "../../db/importJobs";
+import {
+  fetchArticlesWithConcurrency,
+  type FetchArticleResult,
+} from "../../import/fetchArticleHtml";
 import {
   parsePocketExport,
   type ParsedPocketItem,
@@ -10,6 +14,14 @@ type ValidationState =
   | { status: "idle" }
   | { status: "valid"; filename: string; linkCount: number }
   | { status: "invalid"; message: string };
+
+type FetchPhase = "idle" | "running" | "complete";
+
+type FetchSummary = {
+  total: number;
+  success: number;
+  failed: number;
+};
 
 const buildInvalidState = (message: string): ValidationState => ({
   status: "invalid",
@@ -39,17 +51,54 @@ const validatePocketExport = (
   };
 };
 
+const buildFetchSummary = (
+  results: Record<string, FetchArticleResult>,
+  total: number,
+): FetchSummary => {
+  const values = Object.values(results);
+  const success = values.filter((result) => result.status === "success").length;
+  const failed = values.filter((result) => result.status !== "success").length;
+
+  return {
+    total,
+    success,
+    failed,
+  };
+};
+
+const formatResultStatus = (result: FetchArticleResult): string => {
+  if (result.status === "success") {
+    return "Fetched";
+  }
+
+  if (result.status === "timeout") {
+    return "Timed out";
+  }
+
+  return "Failed";
+};
+
 function ImportPage() {
   const [validation, setValidation] = useState<ValidationState>({
     status: "idle",
   });
   const [previewItems, setPreviewItems] = useState<ParsedPocketItem[]>([]);
   const [importJobId, setImportJobId] = useState<string | null>(null);
+  const [fetchPhase, setFetchPhase] = useState<FetchPhase>("idle");
+  const [fetchResults, setFetchResults] = useState<
+    Record<string, FetchArticleResult>
+  >({});
+
+  const fetchSummary = useMemo(() => {
+    return buildFetchSummary(fetchResults, previewItems.length);
+  }, [fetchResults, previewItems.length]);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setPreviewItems([]);
     setImportJobId(null);
+    setFetchPhase("idle");
+    setFetchResults({});
 
     if (!file) {
       setValidation({ status: "idle" });
@@ -86,6 +135,31 @@ function ImportPage() {
     }
   };
 
+  const handleFetchArticles = async () => {
+    if (previewItems.length === 0) {
+      return;
+    }
+
+    setFetchPhase("running");
+    setFetchResults({});
+
+    await fetchArticlesWithConcurrency(
+      previewItems.map((item) => item.url),
+      {
+        concurrency: 3,
+        timeoutMs: 15000,
+        onResult: (result) => {
+          setFetchResults((prev) => ({
+            ...prev,
+            [result.url]: result,
+          }));
+        },
+      },
+    );
+
+    setFetchPhase("complete");
+  };
+
   return (
     <section className="page">
       <h2>Import</h2>
@@ -115,19 +189,42 @@ function ImportPage() {
             {importJobId && (
               <p className="page__status">Import job created: {importJobId}</p>
             )}
+            <button
+              type="button"
+              onClick={handleFetchArticles}
+              disabled={fetchPhase === "running"}
+            >
+              {fetchPhase === "running" ? "Fetching articles…" : "Fetch articles"}
+            </button>
+            {fetchPhase !== "idle" && (
+              <p className="page__status">
+                Fetched {fetchSummary.success} / {fetchSummary.total} (Failures:
+                {" "}
+                {fetchSummary.failed})
+              </p>
+            )}
           </div>
           <ul className="import-preview">
-            {previewItems.map((item) => (
-              <li key={item.url} className="import-preview__item">
-                <strong>{item.title}</strong>
-                <div className="import-preview__meta">{item.url}</div>
-                {item.tags.length > 0 && (
-                  <div className="import-preview__tags">
-                    Tags: {item.tags.join(", ")}
-                  </div>
-                )}
-              </li>
-            ))}
+            {previewItems.map((item) => {
+              const result = fetchResults[item.url];
+              return (
+                <li key={item.url} className="import-preview__item">
+                  <strong>{item.title}</strong>
+                  <div className="import-preview__meta">{item.url}</div>
+                  {item.tags.length > 0 && (
+                    <div className="import-preview__tags">
+                      Tags: {item.tags.join(", ")}
+                    </div>
+                  )}
+                  {result && (
+                    <div className="import-preview__meta">
+                      {formatResultStatus(result)}
+                      {result.error ? ` · ${result.error}` : null}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

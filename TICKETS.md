@@ -187,6 +187,8 @@ Helpers:
 
 **DoD:** Multiple URLs fetched without blocking import.
 
+**Status:** Complete — added a throttled client-side fetcher with timeouts and wired it into the import preview.
+
 ---
 
 ### T2.4 — Readability parsing with fallback
