@@ -16,6 +16,9 @@ function ReaderPage() {
   const [article, setArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
   const [preferences, setPreferences] = useState<ReaderPreferences>(
     defaultReaderPreferences,
   );
@@ -71,6 +74,20 @@ function ReaderPage() {
   }, [id]);
 
   useEffect(() => {
+    const updateOnlineStatus = () => {
+      setIsOnline(navigator.onLine);
+    };
+
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    };
+  }, []);
+
+  useEffect(() => {
     let isActive = true;
 
     const loadPreferences = async () => {
@@ -100,6 +117,10 @@ function ReaderPage() {
     setPreferences(next);
     void setReaderPreferences(next);
   };
+
+  const statusMessage = isOnline
+    ? "You're online. Saved articles remain available offline."
+    : "You're offline. Viewing saved articles from local storage.";
 
   return (
     <section
@@ -167,6 +188,18 @@ function ReaderPage() {
           />
           Dark mode
         </label>
+      </div>
+      <div
+        className={`reader-status${
+          isOnline ? " reader-status--online" : " reader-status--offline"
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        <span className="reader-status__label">
+          {isOnline ? "Online" : "Offline"}
+        </span>
+        <span className="reader-status__message">{statusMessage}</span>
       </div>
       {isLoading ? (
         <p className="page__status">Loading article...</p>
