@@ -318,6 +318,8 @@ Helpers:
 
 **DoD:** Search works on 1k+ articles.
 
+**Status:** Complete — added FlexSearch indexing over content_text and library UI search filtering.
+
 ---
 
 # 📦 EPIC 5 — Offline & Storage

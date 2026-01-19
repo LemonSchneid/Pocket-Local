@@ -4,6 +4,11 @@ import { Link } from "react-router-dom";
 import { archiveArticle, listArticles } from "../../db/articles";
 import type { Article, Tag } from "../../db";
 import { listArticleTagsForArticles, listTags } from "../../db/tags";
+import {
+  buildArticleSearchIndex,
+  searchArticles,
+  type ArticleSearchIndex,
+} from "../../search";
 
 const getHostname = (url: string) => {
   try {
@@ -34,6 +39,10 @@ function LibraryPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [filter, setFilter] = useState<"all" | "unread" | "archived">("all");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchIndex, setSearchIndex] = useState<ArticleSearchIndex | null>(
+    null,
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -74,6 +83,14 @@ function LibraryPage() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (articles.length === 0) {
+      setSearchIndex(null);
+      return;
+    }
+    setSearchIndex(buildArticleSearchIndex(articles));
+  }, [articles]);
 
   const activeArticles = useMemo(
     () => articles.filter((article) => !article.is_archived),
@@ -128,6 +145,24 @@ function LibraryPage() {
     });
   }, [articleTags, filteredArticles, selectedTagIds]);
 
+  const searchResultIds = useMemo(() => {
+    if (!searchIndex || !searchQuery.trim()) {
+      return null;
+    }
+    return new Set(
+      searchArticles(searchIndex, searchQuery, Math.max(articles.length, 50)),
+    );
+  }, [articles.length, searchIndex, searchQuery]);
+
+  const searchFilteredArticles = useMemo(() => {
+    if (!searchResultIds) {
+      return tagFilteredArticles;
+    }
+    return tagFilteredArticles.filter((article) =>
+      searchResultIds.has(article.id),
+    );
+  }, [searchResultIds, tagFilteredArticles]);
+
   const statusMessage = useMemo(() => {
     if (status === "loading" || status === "error") {
       return emptyMessage;
@@ -138,13 +173,23 @@ function LibraryPage() {
     } else if (filter === "unread") {
       label = "unread article";
     }
-    const count = tagFilteredArticles.length;
+    const count = searchFilteredArticles.length;
     let message = `${count} ${label}${count === 1 ? "" : "s"}`;
     if (selectedTagNames.length > 0) {
       message = `${message} matching ${selectedTagNames.join(", ")}`;
     }
+    if (searchQuery.trim()) {
+      message = `${message} for “${searchQuery.trim()}”`;
+    }
     return message;
-  }, [emptyMessage, filter, selectedTagNames, status, tagFilteredArticles.length]);
+  }, [
+    emptyMessage,
+    filter,
+    searchFilteredArticles.length,
+    searchQuery,
+    selectedTagNames,
+    status,
+  ]);
 
   const filterLabel = useMemo(() => {
     let baseLabel = "All articles";
@@ -187,6 +232,32 @@ function LibraryPage() {
     <section className="page">
       <h2 className="page__title">Library</h2>
       <p className="page__status">{statusMessage}</p>
+      {articles.length > 0 ? (
+        <div className="library-search">
+          <label className="library-search__label" htmlFor="library-search-input">
+            Search your library
+          </label>
+          <div className="library-search__input-row">
+            <input
+              id="library-search-input"
+              type="search"
+              className="library-search__input"
+              placeholder="Search saved article text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                className="library-search__clear"
+                onClick={() => setSearchQuery("")}
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       {articles.length > 0 ? (
         <div className="library-filters" role="group" aria-label="Library filter">
           <button
@@ -253,9 +324,9 @@ function LibraryPage() {
           </div>
         </div>
       ) : null}
-      {tagFilteredArticles.length > 0 ? (
+      {searchFilteredArticles.length > 0 ? (
         <ul className="library-list">
-          {tagFilteredArticles.map((article) => (
+          {searchFilteredArticles.map((article) => (
             <li key={article.id} className="library-item">
               <div className="library-item__content">
                 <Link className="library-item__link" to={`/reader/${article.id}`}>
@@ -302,16 +373,18 @@ function LibraryPage() {
         <p className="page__status">{emptyMessage}</p>
       ) : null}
       {articles.length > 0 &&
-      tagFilteredArticles.length === 0 &&
+      searchFilteredArticles.length === 0 &&
       status === "idle"
         ? (
             <p className="page__status">
-              {selectedTagNames.length > 0
-                ? "No articles match the selected tags yet."
-                : filter === "archived"
-                  ? "No archived articles yet."
-                  : filter === "unread"
-                    ? "No unread articles yet. Switch back to All to view your library."
+              {searchQuery.trim()
+                ? "No articles match that search yet."
+                : selectedTagNames.length > 0
+                  ? "No articles match the selected tags yet."
+                  : filter === "archived"
+                    ? "No archived articles yet."
+                    : filter === "unread"
+                      ? "No unread articles yet. Switch back to All to view your library."
                     : "No active articles yet. Switch to Archived to view saved items."}
             </p>
           )
