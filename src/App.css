@@ -184,6 +184,34 @@
   gap: 12px;
 }
 
+.library-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.library-filter__button {
+  border-radius: 999px;
+  border: 1px solid #e3ded7;
+  background: #ffffff;
+  color: #1f1f1f;
+  padding: 6px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.library-filter__button.is-active {
+  background: #1f1f1f;
+  color: #f7f5f2;
+  border-color: #1f1f1f;
+}
+
+.library-filter__label {
+  font-size: 0.9rem;
+  color: #4a4a4a;
+}
+
 .library-item {
   border-radius: 12px;
   border: 1px solid #e3ded7;

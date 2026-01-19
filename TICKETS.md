@@ -264,6 +264,8 @@ Helpers:
 
 **DoD:** Filters work reliably.
 
+**Status:** Complete — added library filter controls for unread items and kept read state updated on open.
+
 ---
 
 ### T3.3 — Archive support
