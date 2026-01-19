@@ -112,6 +112,8 @@ Helpers:
 
 **DoD:** Hardcoded article reads cleanly.
 
+**Status:** Complete — rendered sanitized article content with a responsive reader layout.
+
 ---
 
 ### T1.3 — Reader preferences (local)
