@@ -98,6 +98,8 @@ Helpers:
 
 **DoD:** All article reads/writes go through helpers.
 
+**Status:** Complete — added article helper module for create/update/list/read/archive operations.
+
 ---
 
 ### T1.2 — Reader rendering component
