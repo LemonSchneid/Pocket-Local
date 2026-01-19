@@ -78,3 +78,31 @@ See:
 
 * `MVP_BUILD_SPEC.md` for the full product definition.
 * `TICKETS.md` for the step-by-step plan.
+
+## Troubleshooting
+
+### `npm install` fails with a 403 registry error
+
+If you see a 403 error during `npm install`, it usually means npm is pointing at a registry
+that requires credentials, or your token has expired.
+
+Try the following in order:
+
+1. Confirm which registry npm is using:
+   ```sh
+   npm config get registry
+   ```
+2. If it is not the public npm registry, reset it:
+   ```sh
+   npm config set registry https://registry.npmjs.org/
+   ```
+3. If you are using a private registry or GitHub Packages, ensure your `.npmrc`
+   has a valid auth token and that the scope registry matches your packages.
+4. Clear any cached credentials and try again:
+   ```sh
+   npm cache clean --force
+   ```
+5. Re-authenticate if needed:
+   ```sh
+   npm login
+   ```
