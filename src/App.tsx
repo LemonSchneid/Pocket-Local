@@ -11,7 +11,7 @@ function App() {
     <div className="app">
       <header className="app__header">
         <div>
-          <h1>Pocket Local</h1>
+          <h1>Pocket Export</h1>
           <p>Local-first read-it-later MVP shell.</p>
         </div>
         <nav className="app__nav">

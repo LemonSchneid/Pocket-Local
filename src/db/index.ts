@@ -52,7 +52,7 @@ export interface ImportJob {
   completed_at?: string;
 }
 
-class PocketLocalDB extends Dexie {
+class PocketExportDB extends Dexie {
   articles!: Table<Article, string>;
   tags!: Table<Tag, string>;
   article_tags!: Table<ArticleTag, string>;
@@ -61,7 +61,7 @@ class PocketLocalDB extends Dexie {
   import_jobs!: Table<ImportJob, string>;
 
   constructor() {
-    super("PocketLocalDB");
+    super("PocketExportDB");
     this.version(1).stores({
       articles: "id, url, title, saved_at, parse_status, is_archived, is_read",
       tags: "id, name",
@@ -73,9 +73,9 @@ class PocketLocalDB extends Dexie {
   }
 }
 
-export const db = new PocketLocalDB();
+export const db = new PocketExportDB();
 
 if (import.meta.env.DEV) {
-  const windowWithDb = window as Window & { pocketDb?: PocketLocalDB };
-  windowWithDb.pocketDb = db;
+  const windowWithDb = window as Window & { pocketExportDb?: PocketExportDB };
+  windowWithDb.pocketExportDb = db;
 }

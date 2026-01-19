@@ -1,6 +1,6 @@
-# Pocket Local
+# Pocket Export
 
-Pocket Local is a **local-first, read-it-later web app** built as a Pocket successor.
+Pocket Export is a **local-first, read-it-later web app** built as a Pocket successor.
 It runs entirely in the browser, stores data in IndexedDB, and works offline with no account or server.
 If the server disappears, the app still works.
 

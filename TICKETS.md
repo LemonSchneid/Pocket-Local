@@ -56,7 +56,7 @@ src/
 
 **DoD:** Insert + read a test article from IndexedDB via console.
 
-**Status:** Complete — Dexie schema created and exposed as `window.pocketDb` in dev for console testing.
+**Status:** Complete — Dexie schema created and exposed as `window.pocketExportDb` in dev for console testing.
 
 ---
 
