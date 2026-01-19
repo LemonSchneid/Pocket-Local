@@ -304,6 +304,8 @@ Helpers:
 
 **DoD:** Article list updates instantly.
 
+**Status:** Complete — added multi-tag filtering controls in the library view.
+
 ---
 
 ### T4.3 — Local full-text search

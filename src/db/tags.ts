@@ -34,6 +34,15 @@ export const getOrCreateTag = async (name: string): Promise<Tag> => {
 export const listTags = async (): Promise<Tag[]> =>
   db.tags.orderBy("name").toArray();
 
+export const listArticleTagsForArticles = async (
+  articleIds: string[],
+): Promise<ArticleTag[]> => {
+  if (articleIds.length === 0) {
+    return [];
+  }
+  return db.article_tags.where("article_id").anyOf(articleIds).toArray();
+};
+
 export const createTag = async (name: string): Promise<Tag | null> => {
   const normalized = normalizeTagName(name);
   if (!normalized) {

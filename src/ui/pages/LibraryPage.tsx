@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { archiveArticle, listArticles } from "../../db/articles";
-import type { Article } from "../../db";
+import type { Article, Tag } from "../../db";
+import { listArticleTagsForArticles, listTags } from "../../db/tags";
 
 const getHostname = (url: string) => {
   try {
@@ -26,17 +27,39 @@ const formatSavedDate = (savedAt: string) => {
 
 function LibraryPage() {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [articleTags, setArticleTags] = useState<Map<string, Set<string>>>(
+    () => new Map(),
+  );
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [filter, setFilter] = useState<"all" | "unread" | "archived">("all");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   useEffect(() => {
     let isMounted = true;
     const loadArticles = async () => {
       setStatus("loading");
       try {
-        const items = await listArticles({ includeArchived: true });
+        const [items, tagList] = await Promise.all([
+          listArticles({ includeArchived: true }),
+          listTags(),
+        ]);
+        const tagAssignments = await listArticleTagsForArticles(
+          items.map((item) => item.id),
+        );
+        const nextArticleTags = new Map<string, Set<string>>();
+        tagAssignments.forEach((tag) => {
+          const existing = nextArticleTags.get(tag.article_id);
+          if (existing) {
+            existing.add(tag.tag_id);
+          } else {
+            nextArticleTags.set(tag.article_id, new Set([tag.tag_id]));
+          }
+        });
         if (isMounted) {
           setArticles(items);
+          setTags(tagList);
+          setArticleTags(nextArticleTags);
           setStatus("idle");
         }
       } catch {
@@ -72,26 +95,6 @@ function LibraryPage() {
     return "Import your Pocket archive to start reading offline.";
   }, [status]);
 
-  const statusMessage = useMemo(() => {
-    if (status === "loading" || status === "error") {
-      return emptyMessage;
-    }
-    if (filter === "archived") {
-      return `${archivedArticles.length} archived article${
-        archivedArticles.length === 1 ? "" : "s"
-      }`;
-    }
-    return `${activeArticles.length} article${
-      activeArticles.length === 1 ? "" : "s"
-    } saved`;
-  }, [
-    activeArticles.length,
-    archivedArticles.length,
-    emptyMessage,
-    filter,
-    status,
-  ]);
-
   const filteredArticles = useMemo(() => {
     if (filter === "archived") {
       return archivedArticles;
@@ -102,16 +105,67 @@ function LibraryPage() {
     return activeArticles;
   }, [activeArticles, archivedArticles, filter]);
 
-  const filterLabel = useMemo(() => {
-    switch (filter) {
-      case "unread":
-        return "Unread only";
-      case "archived":
-        return "Archived";
-      default:
-        return "All articles";
+  const selectedTagNames = useMemo(() => {
+    if (selectedTagIds.length === 0) {
+      return [];
     }
-  }, [filter]);
+    const tagLookup = new Map(tags.map((tag) => [tag.id, tag.name]));
+    return selectedTagIds
+      .map((id) => tagLookup.get(id))
+      .filter((name): name is string => Boolean(name));
+  }, [selectedTagIds, tags]);
+
+  const tagFilteredArticles = useMemo(() => {
+    if (selectedTagIds.length === 0) {
+      return filteredArticles;
+    }
+    return filteredArticles.filter((article) => {
+      const tagsForArticle = articleTags.get(article.id);
+      if (!tagsForArticle) {
+        return false;
+      }
+      return selectedTagIds.every((tagId) => tagsForArticle.has(tagId));
+    });
+  }, [articleTags, filteredArticles, selectedTagIds]);
+
+  const statusMessage = useMemo(() => {
+    if (status === "loading" || status === "error") {
+      return emptyMessage;
+    }
+    let label = "article saved";
+    if (filter === "archived") {
+      label = "archived article";
+    } else if (filter === "unread") {
+      label = "unread article";
+    }
+    const count = tagFilteredArticles.length;
+    let message = `${count} ${label}${count === 1 ? "" : "s"}`;
+    if (selectedTagNames.length > 0) {
+      message = `${message} matching ${selectedTagNames.join(", ")}`;
+    }
+    return message;
+  }, [emptyMessage, filter, selectedTagNames, status, tagFilteredArticles.length]);
+
+  const filterLabel = useMemo(() => {
+    let baseLabel = "All articles";
+    if (filter === "unread") {
+      baseLabel = "Unread only";
+    } else if (filter === "archived") {
+      baseLabel = "Archived";
+    }
+    if (selectedTagNames.length === 0) {
+      return baseLabel;
+    }
+    return `${baseLabel} • Tags: ${selectedTagNames.join(", ")}`;
+  }, [filter, selectedTagNames]);
+
+  const handleTagToggle = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((existing) => existing !== tagId)
+        : [...prev, tagId],
+    );
+  };
 
   const handleArchiveToggle = async (article: Article) => {
     const isArchived = article.is_archived === 1;
@@ -165,9 +219,43 @@ function LibraryPage() {
           <span className="library-filter__label">{filterLabel}</span>
         </div>
       ) : null}
-      {filteredArticles.length > 0 ? (
+      {tags.length > 0 ? (
+        <div className="library-tag-filters" role="group" aria-label="Tag filter">
+          <div className="library-tag-filters__header">
+            <span className="library-tag-filters__label">Filter by tag</span>
+            {selectedTagIds.length > 0 ? (
+              <button
+                type="button"
+                className="library-tag-filters__clear"
+                onClick={() => setSelectedTagIds([])}
+              >
+                Clear tags
+              </button>
+            ) : null}
+          </div>
+          <div className="library-tag-filters__list">
+            {tags.map((tag) => {
+              const isActive = selectedTagIds.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className={`library-tag-filters__tag${
+                    isActive ? " is-active" : ""
+                  }`}
+                  aria-pressed={isActive}
+                  onClick={() => handleTagToggle(tag.id)}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+      {tagFilteredArticles.length > 0 ? (
         <ul className="library-list">
-          {filteredArticles.map((article) => (
+          {tagFilteredArticles.map((article) => (
             <li key={article.id} className="library-item">
               <div className="library-item__content">
                 <Link className="library-item__link" to={`/reader/${article.id}`}>
@@ -213,14 +301,18 @@ function LibraryPage() {
       {articles.length === 0 && status === "idle" ? (
         <p className="page__status">{emptyMessage}</p>
       ) : null}
-      {articles.length > 0 && filteredArticles.length === 0 && status === "idle"
+      {articles.length > 0 &&
+      tagFilteredArticles.length === 0 &&
+      status === "idle"
         ? (
             <p className="page__status">
-              {filter === "archived"
-                ? "No archived articles yet."
-                : filter === "unread"
-                  ? "No unread articles yet. Switch back to All to view your library."
-                  : "No active articles yet. Switch to Archived to view saved items."}
+              {selectedTagNames.length > 0
+                ? "No articles match the selected tags yet."
+                : filter === "archived"
+                  ? "No archived articles yet."
+                  : filter === "unread"
+                    ? "No unread articles yet. Switch back to All to view your library."
+                    : "No active articles yet. Switch to Archived to view saved items."}
             </p>
           )
         : null}
