@@ -1,3 +1,5 @@
+import JSZip from "jszip";
+
 import { listArticles } from "../db/articles";
 import { listArticleTagsForArticles, listTags } from "../db/tags";
 import type { Article } from "../db";
@@ -53,6 +55,11 @@ const buildFilename = (article: Article): string => {
   return `${base}.md`;
 };
 
+const buildZipFilename = (): string => {
+  const date = new Date().toISOString().split("T")[0];
+  return `pocket-export-${date}.zip`;
+};
+
 export const createMarkdownExports = async (): Promise<MarkdownExport[]> => {
   const articles = await listArticles({ includeArchived: true });
   const tagList = await listTags();
@@ -84,14 +91,38 @@ export const createMarkdownExports = async (): Promise<MarkdownExport[]> => {
   });
 };
 
-export const downloadMarkdownFile = (filename: string, content: string): void => {
-  const blob = new Blob([content], {
-    type: "text/markdown;charset=utf-8",
-  });
+const downloadBlobFile = (filename: string, blob: Blob): void => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
+};
+
+export const downloadMarkdownFile = (filename: string, content: string): void => {
+  const blob = new Blob([content], {
+    type: "text/markdown;charset=utf-8",
+  });
+  downloadBlobFile(filename, blob);
+};
+
+export const createMarkdownZip = async (
+  onProgress?: (count: number, total: number) => void,
+): Promise<{ filename: string; blob: Blob }> => {
+  const exports = await createMarkdownExports();
+  const zip = new JSZip();
+
+  exports.forEach((item, index) => {
+    zip.file(item.filename, item.content);
+    onProgress?.(index + 1, exports.length);
+  });
+
+  const blob = await zip.generateAsync({ type: "blob" });
+
+  return { filename: buildZipFilename(), blob };
+};
+
+export const downloadZipFile = (filename: string, blob: Blob): void => {
+  downloadBlobFile(filename, blob);
 };

@@ -2,18 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   createMarkdownExports,
+  createMarkdownZip,
   downloadMarkdownFile,
+  downloadZipFile,
 } from "../../export/markdownExport";
 import { listArticles } from "../../db/articles";
 
 const tick = () => new Promise((resolve) => window.setTimeout(resolve, 0));
 
 type ExportState = "idle" | "exporting" | "done";
+type ExportMode = "files" | "zip" | null;
 
 function ExportPage() {
   const [articleCount, setArticleCount] = useState<number>(0);
   const [exportedCount, setExportedCount] = useState(0);
   const [status, setStatus] = useState<ExportState>("idle");
+  const [exportMode, setExportMode] = useState<ExportMode>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,10 +36,11 @@ function ExportPage() {
 
   const canExport = articleCount > 0 && status !== "exporting";
 
-  const handleExport = async () => {
+  const handleFileExport = async () => {
     setError(null);
     setStatus("exporting");
     setExportedCount(0);
+    setExportMode("files");
 
     try {
       const exports = await createMarkdownExports();
@@ -51,15 +56,39 @@ function ExportPage() {
       console.error(exportError);
       setError("Unable to export your library right now.");
       setStatus("idle");
+      setExportMode(null);
+    }
+  };
+
+  const handleZipExport = async () => {
+    setError(null);
+    setStatus("exporting");
+    setExportedCount(0);
+    setExportMode("zip");
+
+    try {
+      const { filename, blob } = await createMarkdownZip((count) => {
+        setExportedCount(count);
+      });
+      downloadZipFile(filename, blob);
+      setStatus("done");
+    } catch (exportError) {
+      console.error(exportError);
+      setError("Unable to export your library right now.");
+      setStatus("idle");
+      setExportMode(null);
     }
   };
 
   const statusMessage = useMemo(() => {
     if (status === "exporting") {
-      return `Exporting ${exportedCount} of ${articleCount} articles...`;
+      const suffix = exportMode === "zip" ? "for ZIP export" : "as Markdown";
+      return `Exporting ${exportedCount} of ${articleCount} articles ${suffix}...`;
     }
     if (status === "done") {
-      return `Exported ${exportedCount} articles to Markdown.`;
+      return exportMode === "zip"
+        ? `Exported ${exportedCount} articles to a ZIP file.`
+        : `Exported ${exportedCount} articles to Markdown.`;
     }
     if (articleCount === 0) {
       return "Add articles before exporting your library.";
@@ -77,13 +106,21 @@ function ExportPage() {
         <button
           type="button"
           className="export-actions__button"
-          onClick={handleExport}
+          onClick={handleZipExport}
           disabled={!canExport}
         >
-          {status === "exporting" ? "Exporting..." : "Export Markdown"}
+          {status === "exporting" ? "Exporting..." : "Export ZIP"}
+        </button>
+        <button
+          type="button"
+          className="export-actions__button export-actions__button--secondary"
+          onClick={handleFileExport}
+          disabled={!canExport}
+        >
+          {status === "exporting" ? "Exporting..." : "Export Markdown Files"}
         </button>
         <p className="export-actions__note">
-          Files are downloaded individually as Markdown with YAML frontmatter.
+          Download everything in a single ZIP or as individual Markdown files.
         </p>
       </div>
       {error ? (
