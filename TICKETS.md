@@ -482,6 +482,8 @@ Helpers:
 
 **DoD:** App accessible publicly.
 
+**Status:** Complete — added Netlify deployment configuration and README deployment steps.
+
 ---
 
 ## FINAL EXECUTION RULE

@@ -79,6 +79,16 @@ See:
 * `MVP_BUILD_SPEC.md` for the full product definition.
 * `TICKETS.md` for the step-by-step plan.
 
+## Deployment (Netlify)
+
+This app is a static Vite build and can be deployed to Netlify with HTTPS enabled by default.
+The repository includes a `netlify.toml` that sets the build command, output directory,
+and a SPA fallback redirect.
+
+1. Create a new Netlify site from this repository.
+2. Use the default build settings (`npm run build`, publish `dist`).
+3. Deploy — Netlify will serve the app over HTTPS automatically.
+
 ## Troubleshooting
 
 ### `npm install` fails with a 403 registry error
