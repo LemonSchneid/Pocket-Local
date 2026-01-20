@@ -17,6 +17,7 @@ import {
 import { fetchArticleHtml } from "../../import/fetchArticleHtml";
 import { parseArticleHtml } from "../../import/parseArticleHtml";
 import { cacheArticleAssets } from "../../import/cacheArticleAssets";
+import { logError } from "../../utils/logger";
 
 const getHostname = (url: string) => {
   try {
@@ -136,6 +137,7 @@ function LibraryPage() {
           setStatus("idle");
         }
       } catch {
+        logError("library-load-failed", "Unable to load library data.");
         if (isMounted) {
           setStatus("error");
         }
@@ -294,18 +296,22 @@ function LibraryPage() {
 
   const handleArchiveToggle = async (article: Article) => {
     const isArchived = article.is_archived === 1;
-    const updated = await archiveArticle(article.id, !isArchived);
-    setArticles((prev) =>
-      prev.map((item) =>
-        item.id === article.id
-          ? {
-              ...item,
-              is_archived: updated?.is_archived ?? (isArchived ? 0 : 1),
-              updated_at: updated?.updated_at ?? item.updated_at,
-            }
-          : item,
-      ),
-    );
+    try {
+      const updated = await archiveArticle(article.id, !isArchived);
+      setArticles((prev) =>
+        prev.map((item) =>
+          item.id === article.id
+            ? {
+                ...item,
+                is_archived: updated?.is_archived ?? (isArchived ? 0 : 1),
+                updated_at: updated?.updated_at ?? item.updated_at,
+              }
+            : item,
+        ),
+      );
+    } catch (error) {
+      logError("library-archive-failed", error, { articleId: article.id });
+    }
   };
 
   const handleCaptureSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -323,51 +329,59 @@ function LibraryPage() {
 
     setCaptureStatus({ state: "saving" });
 
-    const result = await fetchArticleHtml(normalizedUrl);
+    try {
+      const result = await fetchArticleHtml(normalizedUrl);
 
-    if (result.status !== "success" || !result.html) {
+      if (result.status !== "success" || !result.html) {
+        setCaptureStatus({
+          state: "error",
+          message:
+            result.error ??
+            "We could not fetch that URL. Some sites block cross-origin requests.",
+        });
+        return;
+      }
+
+      const parsed = parseArticleHtml(result.html);
+      const title = extractTitleFromHtml(result.html, normalizedUrl);
+      const article = await createArticle({
+        url: normalizedUrl,
+        title,
+        content_html: parsed.content_html,
+        content_text: parsed.content_text,
+        parse_status: parsed.parse_status,
+      });
+      const cachedAssets = await cacheArticleAssets({
+        articleId: article.id,
+        articleUrl: normalizedUrl,
+        contentHtml: parsed.content_html,
+      });
+      let updatedArticle = article;
+
+      if (cachedAssets.contentHtml !== parsed.content_html) {
+        const stored = await updateArticle(article.id, {
+          content_html: cachedAssets.contentHtml,
+        });
+        if (stored) {
+          updatedArticle = stored;
+        }
+      }
+
+      setArticles((prev) => [updatedArticle, ...prev]);
+      setCaptureStatus({
+        state: "success",
+        title: updatedArticle.title,
+        articleId: updatedArticle.id,
+        parseStatus: parsed.parse_status,
+      });
+      setCaptureUrl("");
+    } catch (error) {
+      logError("library-capture-failed", error, { url: normalizedUrl });
       setCaptureStatus({
         state: "error",
-        message:
-          result.error ??
-          "We could not fetch that URL. Some sites block cross-origin requests.",
+        message: "Unable to save that article right now.",
       });
-      return;
     }
-
-    const parsed = parseArticleHtml(result.html);
-    const title = extractTitleFromHtml(result.html, normalizedUrl);
-    const article = await createArticle({
-      url: normalizedUrl,
-      title,
-      content_html: parsed.content_html,
-      content_text: parsed.content_text,
-      parse_status: parsed.parse_status,
-    });
-    const cachedAssets = await cacheArticleAssets({
-      articleId: article.id,
-      articleUrl: normalizedUrl,
-      contentHtml: parsed.content_html,
-    });
-    let updatedArticle = article;
-
-    if (cachedAssets.contentHtml !== parsed.content_html) {
-      const stored = await updateArticle(article.id, {
-        content_html: cachedAssets.contentHtml,
-      });
-      if (stored) {
-        updatedArticle = stored;
-      }
-    }
-
-    setArticles((prev) => [updatedArticle, ...prev]);
-    setCaptureStatus({
-      state: "success",
-      title: updatedArticle.title,
-      articleId: updatedArticle.id,
-      parseStatus: parsed.parse_status,
-    });
-    setCaptureUrl("");
   };
 
   return (

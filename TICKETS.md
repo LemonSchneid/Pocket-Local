@@ -454,6 +454,8 @@ Helpers:
 
 **DoD:** No silent failures.
 
+**Status:** Complete — added shared error logging utilities, UI error states, and a global error boundary fallback.
+
 ---
 
 # 🚀 EPIC 9 — PWA & Beta Release

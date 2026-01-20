@@ -17,6 +17,7 @@ import {
   type ReaderPreferences,
 } from "../../db/settings";
 import ReaderContent from "../../reader/ReaderContent";
+import { logError } from "../../utils/logger";
 
 function ReaderPage() {
   const { id } = useParams();
@@ -71,6 +72,7 @@ function ReaderPage() {
           return;
         }
 
+        logError("reader-load-article-failed", caughtError, { articleId: id });
         setError(
           caughtError instanceof Error
             ? caughtError.message
@@ -108,6 +110,9 @@ function ReaderPage() {
           Object.values(createdUrls).forEach((url) => URL.revokeObjectURL(url));
         }
       } catch {
+        logError("reader-load-assets-failed", "Unable to load article assets.", {
+          articleId: article.id,
+        });
         if (isActive) {
           setAssetUrls({});
         }
@@ -140,6 +145,9 @@ function ReaderPage() {
           setArticleTags(assignedTags);
         }
       } catch {
+        logError("reader-load-tags-failed", "Unable to load tags.", {
+          articleId: id,
+        });
         if (isActive) {
           setTagError("Unable to load tags.");
         }
@@ -212,12 +220,17 @@ function ReaderPage() {
   );
 
   const refreshTags = async (articleId: string) => {
-    const [availableTags, assignedTags] = await Promise.all([
-      listTags(),
-      getTagsForArticle(articleId),
-    ]);
-    setTags(availableTags);
-    setArticleTags(assignedTags);
+    try {
+      const [availableTags, assignedTags] = await Promise.all([
+        listTags(),
+        getTagsForArticle(articleId),
+      ]);
+      setTags(availableTags);
+      setArticleTags(assignedTags);
+    } catch (error) {
+      logError("reader-refresh-tags-failed", error, { articleId });
+      setTagError("Unable to refresh tags.");
+    }
   };
 
   const handleToggleTag = async (tagId: string) => {
@@ -236,6 +249,9 @@ function ReaderPage() {
       await setTagsForArticle(article.id, nextTagIds);
       await refreshTags(article.id);
     } catch (caughtError) {
+      logError("reader-update-tag-failed", caughtError, {
+        articleId: article.id,
+      });
       setTagError(
         caughtError instanceof Error
           ? caughtError.message
@@ -270,6 +286,9 @@ function ReaderPage() {
       await refreshTags(article.id);
       setNewTagName("");
     } catch (caughtError) {
+      logError("reader-create-tag-failed", caughtError, {
+        articleId: article.id,
+      });
       setTagError(
         caughtError instanceof Error
           ? caughtError.message

@@ -5,6 +5,7 @@ import ImportPage from "./ui/pages/ImportPage";
 import LibraryPage from "./ui/pages/LibraryPage";
 import ReaderPage from "./ui/pages/ReaderPage";
 import SettingsPage from "./ui/pages/SettingsPage";
+import ErrorBoundary from "./ui/components/ErrorBoundary";
 
 function App() {
   return (
@@ -24,13 +25,15 @@ function App() {
         </nav>
       </header>
       <main className="app__main">
-        <Routes>
-          <Route path="/" element={<LibraryPage />} />
-          <Route path="/reader/:id" element={<ReaderPage />} />
-          <Route path="/import" element={<ImportPage />} />
-          <Route path="/export" element={<ExportPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<LibraryPage />} />
+            <Route path="/reader/:id" element={<ReaderPage />} />
+            <Route path="/import" element={<ImportPage />} />
+            <Route path="/export" element={<ExportPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
     </div>
   );

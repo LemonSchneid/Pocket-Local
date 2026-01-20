@@ -23,6 +23,7 @@ import {
   getStoragePersistenceState,
   setStoragePersistenceState,
 } from "../../db/settings";
+import { logError } from "../../utils/logger";
 
 type ValidationState =
   | { status: "idle" }
@@ -116,6 +117,7 @@ function ImportPage() {
   const [fetchResults, setFetchResults] = useState<
     Record<string, FetchDisplayResult>
   >({});
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchSummary = useMemo(() => {
     return buildFetchSummary(fetchResults, previewItems.length);
@@ -136,6 +138,7 @@ function ImportPage() {
     setImportJobId(null);
     setFetchPhase("idle");
     setFetchResults({});
+    setFetchError(null);
 
     if (!file) {
       setValidation({ status: "idle" });
@@ -164,6 +167,7 @@ function ImportPage() {
       setPreviewItems(parsed.items);
       setImportJobId(job.id);
     } catch (error) {
+      logError("import-file-read-failed", error);
       const message =
         error instanceof Error
           ? error.message
@@ -179,82 +183,94 @@ function ImportPage() {
 
     setFetchPhase("running");
     setFetchResults({});
+    setFetchError(null);
 
     let successCount = 0;
     let failedCount = 0;
 
-    if (importJobId) {
-      await updateImportJob(importJobId, { status: "in_progress" });
-    }
+    try {
+      if (importJobId) {
+        await updateImportJob(importJobId, { status: "in_progress" });
+      }
 
-    const itemsByUrl = new Map(
-      previewItems.map((item) => [item.url, item]),
-    );
+      const itemsByUrl = new Map(
+        previewItems.map((item) => [item.url, item]),
+      );
 
-    await fetchArticlesWithConcurrency(
-      previewItems.map((item) => item.url),
-      {
-        concurrency: 3,
-        timeoutMs: 15000,
-        onResult: async (result) => {
-          const item = itemsByUrl.get(result.url);
-          let parseStatus: ParseStatus | undefined;
+      await fetchArticlesWithConcurrency(
+        previewItems.map((item) => item.url),
+        {
+          concurrency: 3,
+          timeoutMs: 15000,
+          onResult: async (result) => {
+            const item = itemsByUrl.get(result.url);
+            let parseStatus: ParseStatus | undefined;
 
-          if (result.status === "success" && result.html && item) {
-            successCount += 1;
-            const parsed = parseArticleHtml(result.html);
-            parseStatus = parsed.parse_status;
-            const article = await createArticle({
-              url: item.url,
-              title: item.title,
-              content_html: parsed.content_html,
-              content_text: parsed.content_text,
-              parse_status: parsed.parse_status,
-            });
-            const cachedAssets = await cacheArticleAssets({
-              articleId: article.id,
-              articleUrl: item.url,
-              contentHtml: parsed.content_html,
-            });
-            if (cachedAssets.contentHtml !== parsed.content_html) {
-              await updateArticle(article.id, {
-                content_html: cachedAssets.contentHtml,
+            if (result.status === "success" && result.html && item) {
+              successCount += 1;
+              const parsed = parseArticleHtml(result.html);
+              parseStatus = parsed.parse_status;
+              const article = await createArticle({
+                url: item.url,
+                title: item.title,
+                content_html: parsed.content_html,
+                content_text: parsed.content_text,
+                parse_status: parsed.parse_status,
               });
+              const cachedAssets = await cacheArticleAssets({
+                articleId: article.id,
+                articleUrl: item.url,
+                contentHtml: parsed.content_html,
+              });
+              if (cachedAssets.contentHtml !== parsed.content_html) {
+                await updateArticle(article.id, {
+                  content_html: cachedAssets.contentHtml,
+                });
+              }
+              await addTagsToArticle(article.id, item.tags);
+              if (importJobId) {
+                await recordImportJobResult(importJobId, "success");
+              }
+            } else {
+              failedCount += 1;
+              if (importJobId) {
+                await recordImportJobResult(importJobId, "failed");
+              }
             }
-            await addTagsToArticle(article.id, item.tags);
-            if (importJobId) {
-              await recordImportJobResult(importJobId, "success");
-            }
-          } else {
-            failedCount += 1;
-            if (importJobId) {
-              await recordImportJobResult(importJobId, "failed");
-            }
-          }
 
-          setFetchResults((prev) => ({
-            ...prev,
-            [result.url]: { ...result, parseStatus },
-          }));
+            setFetchResults((prev) => ({
+              ...prev,
+              [result.url]: { ...result, parseStatus },
+            }));
+          },
         },
-      },
-    );
+      );
 
-    setFetchPhase("complete");
+      setFetchPhase("complete");
 
-    if (importJobId) {
-      await completeImportJob(importJobId);
-    }
+      if (importJobId) {
+        await completeImportJob(importJobId);
+      }
 
-    if (successCount > 0) {
-      const persistenceState = await getStoragePersistenceState();
-      if (persistenceState === "unknown") {
-        if (navigator.storage?.persist) {
-          const persisted = await navigator.storage.persist();
-          await setStoragePersistenceState(persisted ? "granted" : "denied");
-        } else {
-          await setStoragePersistenceState("unsupported");
+      if (successCount > 0) {
+        const persistenceState = await getStoragePersistenceState();
+        if (persistenceState === "unknown") {
+          if (navigator.storage?.persist) {
+            const persisted = await navigator.storage.persist();
+            await setStoragePersistenceState(persisted ? "granted" : "denied");
+          } else {
+            await setStoragePersistenceState("unsupported");
+          }
         }
+      }
+    } catch (error) {
+      logError("import-fetch-failed", error, { importJobId });
+      setFetchPhase("complete");
+      setFetchError(
+        "Import ran into an issue. Some articles may be missing, but you can retry.",
+      );
+      if (importJobId) {
+        await updateImportJob(importJobId, { status: "completed" });
       }
     }
   };
@@ -327,6 +343,11 @@ function ImportPage() {
               </ul>
             </div>
           )}
+          {fetchError ? (
+            <p className="page__status page__status--error" role="alert">
+              {fetchError}
+            </p>
+          ) : null}
           <ul className="import-preview">
             {previewItems.map((item) => {
               const result = fetchResults[item.url];

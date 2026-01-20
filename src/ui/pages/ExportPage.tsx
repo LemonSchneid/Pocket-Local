@@ -7,6 +7,7 @@ import {
   downloadZipFile,
 } from "../../export/markdownExport";
 import { listArticles } from "../../db/articles";
+import { logError } from "../../utils/logger";
 
 const tick = () => new Promise((resolve) => window.setTimeout(resolve, 0));
 
@@ -26,7 +27,7 @@ function ExportPage() {
         const articles = await listArticles({ includeArchived: true });
         setArticleCount(articles.length);
       } catch (loadError) {
-        console.error(loadError);
+        logError("export-load-articles-failed", loadError);
         setError("Unable to load articles for export.");
       }
     };
@@ -53,7 +54,7 @@ function ExportPage() {
 
       setStatus("done");
     } catch (exportError) {
-      console.error(exportError);
+      logError("export-markdown-failed", exportError);
       setError("Unable to export your library right now.");
       setStatus("idle");
       setExportMode(null);
@@ -73,7 +74,7 @@ function ExportPage() {
       downloadZipFile(filename, blob);
       setStatus("done");
     } catch (exportError) {
-      console.error(exportError);
+      logError("export-zip-failed", exportError);
       setError("Unable to export your library right now.");
       setStatus("idle");
       setExportMode(null);

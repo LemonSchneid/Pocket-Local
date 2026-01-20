@@ -4,6 +4,7 @@ import type { Tag } from "../../db";
 import { clearAllData } from "../../db";
 import { createTag, deleteTag, listTags } from "../../db/tags";
 import { getStoragePersistenceState } from "../../db/settings";
+import { logError } from "../../utils/logger";
 
 type StorageInfo = {
   usageBytes: number;
@@ -55,6 +56,7 @@ function SettingsPage() {
           setTags(items);
         }
       } catch {
+        logError("settings-load-tags-failed", "Unable to load tags.");
         if (isActive) {
           setError("Unable to load tags.");
           setStatus("error");
@@ -78,6 +80,7 @@ function SettingsPage() {
           setStorageInfo({ usageBytes, quotaBytes, percentUsed });
         }
       } catch {
+        logError("settings-storage-estimate-failed", "Unable to estimate storage.");
         if (isActive) {
           setStorageError("Unable to estimate storage usage.");
         }
@@ -89,6 +92,7 @@ function SettingsPage() {
           setStorageState(persistenceState);
         }
       } catch {
+        logError("settings-persistence-state-failed", "Unable to load persistence state.");
         if (isActive) {
           setStorageState("unknown");
         }
@@ -118,6 +122,7 @@ function SettingsPage() {
       setNewTagName("");
       setStatus("idle");
     } catch (caughtError) {
+      logError("settings-create-tag-failed", caughtError);
       setError(
         caughtError instanceof Error
           ? caughtError.message
@@ -136,6 +141,7 @@ function SettingsPage() {
       await loadTags();
       setStatus("idle");
     } catch (caughtError) {
+      logError("settings-delete-tag-failed", caughtError, { tagId: tag.id });
       setError(
         caughtError instanceof Error
           ? caughtError.message
@@ -161,6 +167,7 @@ function SettingsPage() {
       setClearStatus("success");
       window.location.reload();
     } catch {
+      logError("settings-clear-data-failed", "Unable to clear local data.");
       setClearError("Unable to clear local data.");
       setClearStatus("error");
     }
