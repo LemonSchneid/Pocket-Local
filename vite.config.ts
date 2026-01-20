@@ -10,7 +10,7 @@ export default defineConfig({
     VitePWA({
       injectRegister: null,
       registerType: "autoUpdate",
-      includeAssets: ["vite.svg"],
+      includeAssets: ["vite.svg", "pwa-icon.svg"],
       manifest: {
         name: "Pocket Local",
         short_name: "Pocket Local",
@@ -18,6 +18,21 @@ export default defineConfig({
         display: "standalone",
         background_color: "#ffffff",
         theme_color: "#111827",
+        description: "A local-first read-it-later app that works offline.",
+        icons: [
+          {
+            src: "/pwa-icon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any",
+          },
+          {
+            src: "/pwa-icon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "maskable",
+          },
+        ],
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],

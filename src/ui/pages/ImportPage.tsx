@@ -1,4 +1,4 @@
-import { type ChangeEvent, useMemo, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 
 import type { ParseStatus } from "../../db";
 import { createArticle, updateArticle } from "../../db/articles";
@@ -23,6 +23,11 @@ import {
   getStoragePersistenceState,
   setStoragePersistenceState,
 } from "../../db/settings";
+import {
+  getInstallPromptEvent,
+  onInstallPromptAvailable,
+  promptForInstall,
+} from "../../offline/installPrompt";
 import { logError } from "../../utils/logger";
 
 type ValidationState =
@@ -118,6 +123,21 @@ function ImportPage() {
     Record<string, FetchDisplayResult>
   >({});
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [installPromptAvailable, setInstallPromptAvailable] = useState(false);
+  const [installPromptMessage, setInstallPromptMessage] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    if (getInstallPromptEvent()) {
+      setInstallPromptAvailable(true);
+    }
+
+    return onInstallPromptAvailable(() => {
+      setInstallPromptAvailable(true);
+    });
+  }, []);
 
   const fetchSummary = useMemo(() => {
     return buildFetchSummary(fetchResults, previewItems.length);
@@ -139,6 +159,8 @@ function ImportPage() {
     setFetchPhase("idle");
     setFetchResults({});
     setFetchError(null);
+    setShowInstallPrompt(false);
+    setInstallPromptMessage(null);
 
     if (!file) {
       setValidation({ status: "idle" });
@@ -247,6 +269,7 @@ function ImportPage() {
       );
 
       setFetchPhase("complete");
+      setShowInstallPrompt(successCount > 0);
 
       if (importJobId) {
         await completeImportJob(importJobId);
@@ -272,6 +295,22 @@ function ImportPage() {
       if (importJobId) {
         await updateImportJob(importJobId, { status: "completed" });
       }
+    }
+  };
+
+  const handleInstallClick = async () => {
+    const choice = await promptForInstall();
+    if (!choice) {
+      setInstallPromptMessage(
+        "Install prompt is not available in this browser yet.",
+      );
+      return;
+    }
+
+    if (choice.outcome === "accepted") {
+      setInstallPromptMessage("✅ Pocket Local installed.");
+    } else {
+      setInstallPromptMessage("Install dismissed. You can retry anytime.");
     }
   };
 
@@ -327,6 +366,30 @@ function ImportPage() {
                   <span>Imported: {fetchSummary.success}</span>
                   <span>Failures: {fetchSummary.failed}</span>
                 </div>
+                {fetchPhase === "complete" &&
+                  showInstallPrompt &&
+                  fetchSummary.success > 0 && (
+                    <div className="install-prompt">
+                      <div>
+                        <strong>Install Pocket Local</strong>
+                        <p>
+                          Keep the app available offline with a one-tap install.
+                        </p>
+                      </div>
+                      {installPromptAvailable ? (
+                        <button type="button" onClick={handleInstallClick}>
+                          Install app
+                        </button>
+                      ) : (
+                        <p className="page__status">
+                          Install prompt not available in this browser.
+                        </p>
+                      )}
+                      {installPromptMessage ? (
+                        <p className="page__status">{installPromptMessage}</p>
+                      ) : null}
+                    </div>
+                  )}
               </div>
             )}
           </div>

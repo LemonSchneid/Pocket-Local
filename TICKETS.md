@@ -469,6 +469,8 @@ Helpers:
 
 **DoD:** Install prompt appears post-import.
 
+**Status:** Complete — added manifest icons/metadata plus an install call-to-action after successful imports.
+
 ---
 
 ### T9.2 — Beta deployment
