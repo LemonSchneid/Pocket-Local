@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import {
   archiveArticle,
@@ -92,6 +92,21 @@ function LibraryPage() {
   const [captureStatus, setCaptureStatus] = useState<CaptureStatus>({
     state: "idle",
   });
+  const location = useLocation();
+  const bookmarkletUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("url");
+  }, [location.search]);
+  const bookmarkletHref = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "#";
+    }
+    const appOrigin = window.location.origin;
+    const script = `(function(){var url=encodeURIComponent(window.location.href);var app=${JSON.stringify(
+      appOrigin,
+    )};window.open(app + "/?url=" + url,"_blank","noopener,noreferrer");})();`;
+    return `javascript:${script}`;
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -140,6 +155,22 @@ function LibraryPage() {
     }
     setSearchIndex(buildArticleSearchIndex(articles));
   }, [articles]);
+
+  useEffect(() => {
+    if (!bookmarkletUrl) {
+      return;
+    }
+    const normalizedUrl = normalizeUrl(bookmarkletUrl);
+    if (!normalizedUrl) {
+      setCaptureStatus({
+        state: "error",
+        message: "Bookmarklet URL is invalid. Enter a valid http(s) URL.",
+      });
+      return;
+    }
+    setCaptureUrl(normalizedUrl);
+    setCaptureStatus({ state: "idle" });
+  }, [bookmarkletUrl]);
 
   const activeArticles = useMemo(
     () => articles.filter((article) => !article.is_archived),
@@ -382,6 +413,33 @@ function LibraryPage() {
               : null}
           </p>
         ) : null}
+        {bookmarkletUrl && captureStatus.state !== "error" ? (
+          <p className="library-capture__status">
+            Bookmarklet loaded a URL. Press Save to capture it.
+          </p>
+        ) : null}
+      </div>
+      <div className="library-bookmarklet">
+        <div className="library-bookmarklet__header">
+          <h3>Bookmarklet</h3>
+          <p>
+            Drag this button to your bookmarks bar. On any page, click it to
+            send the current URL here.
+          </p>
+        </div>
+        <div className="library-bookmarklet__actions">
+          <a
+            className="library-bookmarklet__button"
+            href={bookmarkletHref}
+            onClick={(event) => event.preventDefault()}
+          >
+            Save to Pocket Export
+          </a>
+          <p className="library-bookmarklet__hint">
+            Tip: Chrome and Safari let you drag the button directly into the
+            bookmarks bar.
+          </p>
+        </div>
       </div>
       {articles.length > 0 ? (
         <div className="library-search">

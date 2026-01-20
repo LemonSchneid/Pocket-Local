@@ -425,6 +425,8 @@ Helpers:
 
 **DoD:** Bookmarklet works on arbitrary pages.
 
+**Status:** Complete — added a draggable bookmarklet with URL payload handling on the Library page.
+
 ---
 
 # ⚙️ EPIC 8 — Settings + Hygiene
