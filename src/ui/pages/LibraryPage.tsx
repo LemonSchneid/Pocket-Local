@@ -1,14 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { archiveArticle, listArticles } from "../../db/articles";
-import type { Article, Tag } from "../../db";
+import {
+  archiveArticle,
+  createArticle,
+  listArticles,
+  updateArticle,
+} from "../../db/articles";
+import type { Article, ParseStatus, Tag } from "../../db";
 import { listArticleTagsForArticles, listTags } from "../../db/tags";
 import {
   buildArticleSearchIndex,
   searchArticles,
   type ArticleSearchIndex,
 } from "../../search";
+import { fetchArticleHtml } from "../../import/fetchArticleHtml";
+import { parseArticleHtml } from "../../import/parseArticleHtml";
+import { cacheArticleAssets } from "../../import/cacheArticleAssets";
 
 const getHostname = (url: string) => {
   try {
@@ -30,6 +38,43 @@ const formatSavedDate = (savedAt: string) => {
   });
 };
 
+type CaptureStatus =
+  | { state: "idle" }
+  | { state: "saving" }
+  | {
+      state: "success";
+      title: string;
+      articleId: string;
+      parseStatus: ParseStatus;
+    }
+  | { state: "error"; message: string };
+
+const normalizeUrl = (value: string): string | null => {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+};
+
+const extractTitleFromHtml = (html: string, fallbackUrl: string): string => {
+  const parser = new DOMParser();
+  const document = parser.parseFromString(html, "text/html");
+  const titleText = document.title?.trim();
+  if (titleText) {
+    return titleText;
+  }
+  const headerText = document.querySelector("h1")?.textContent?.trim();
+  if (headerText) {
+    return headerText;
+  }
+  return getHostname(fallbackUrl);
+};
+
 function LibraryPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -43,6 +88,10 @@ function LibraryPage() {
   const [searchIndex, setSearchIndex] = useState<ArticleSearchIndex | null>(
     null,
   );
+  const [captureUrl, setCaptureUrl] = useState("");
+  const [captureStatus, setCaptureStatus] = useState<CaptureStatus>({
+    state: "idle",
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -228,10 +277,112 @@ function LibraryPage() {
     );
   };
 
+  const handleCaptureSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = captureUrl.trim();
+    const normalizedUrl = normalizeUrl(trimmed);
+
+    if (!normalizedUrl) {
+      setCaptureStatus({
+        state: "error",
+        message: "Enter a valid http(s) URL to save.",
+      });
+      return;
+    }
+
+    setCaptureStatus({ state: "saving" });
+
+    const result = await fetchArticleHtml(normalizedUrl);
+
+    if (result.status !== "success" || !result.html) {
+      setCaptureStatus({
+        state: "error",
+        message:
+          result.error ??
+          "We could not fetch that URL. Some sites block cross-origin requests.",
+      });
+      return;
+    }
+
+    const parsed = parseArticleHtml(result.html);
+    const title = extractTitleFromHtml(result.html, normalizedUrl);
+    const article = await createArticle({
+      url: normalizedUrl,
+      title,
+      content_html: parsed.content_html,
+      content_text: parsed.content_text,
+      parse_status: parsed.parse_status,
+    });
+    const cachedAssets = await cacheArticleAssets({
+      articleId: article.id,
+      articleUrl: normalizedUrl,
+      contentHtml: parsed.content_html,
+    });
+    let updatedArticle = article;
+
+    if (cachedAssets.contentHtml !== parsed.content_html) {
+      const stored = await updateArticle(article.id, {
+        content_html: cachedAssets.contentHtml,
+      });
+      if (stored) {
+        updatedArticle = stored;
+      }
+    }
+
+    setArticles((prev) => [updatedArticle, ...prev]);
+    setCaptureStatus({
+      state: "success",
+      title: updatedArticle.title,
+      articleId: updatedArticle.id,
+      parseStatus: parsed.parse_status,
+    });
+    setCaptureUrl("");
+  };
+
   return (
     <section className="page">
       <h2 className="page__title">Library</h2>
       <p className="page__status">{statusMessage}</p>
+      <div className="library-capture">
+        <div className="library-capture__header">
+          <h3>Save a new article</h3>
+          <p>Paste a URL to fetch and store it for offline reading.</p>
+        </div>
+        <form className="library-capture__form" onSubmit={handleCaptureSubmit}>
+          <label className="library-capture__label" htmlFor="capture-url">
+            Article URL
+          </label>
+          <div className="library-capture__row">
+            <input
+              id="capture-url"
+              type="url"
+              value={captureUrl}
+              onChange={(event) => setCaptureUrl(event.target.value)}
+              placeholder="https://example.com/article"
+              required
+            />
+            <button type="submit" disabled={captureStatus.state === "saving"}>
+              {captureStatus.state === "saving" ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </form>
+        {captureStatus.state === "error" ? (
+          <p className="library-capture__status library-capture__status--error">
+            {captureStatus.message}
+          </p>
+        ) : null}
+        {captureStatus.state === "success" ? (
+          <p className="library-capture__status">
+            Saved “{captureStatus.title}”.{" "}
+            <Link to={`/reader/${captureStatus.articleId}`}>
+              Open in reader
+            </Link>
+            {captureStatus.parseStatus === "partial"
+              ? " (Saved raw HTML due to parsing limits.)"
+              : null}
+          </p>
+        ) : null}
+      </div>
       {articles.length > 0 ? (
         <div className="library-search">
           <label className="library-search__label" htmlFor="library-search-input">
