@@ -75,6 +75,28 @@ class PocketExportDB extends Dexie {
 
 export const db = new PocketExportDB();
 
+export const clearAllData = async (): Promise<void> => {
+  await db.transaction(
+    "rw",
+    db.articles,
+    db.tags,
+    db.article_tags,
+    db.assets,
+    db.settings,
+    db.import_jobs,
+    async () => {
+      await Promise.all([
+        db.articles.clear(),
+        db.tags.clear(),
+        db.article_tags.clear(),
+        db.assets.clear(),
+        db.settings.clear(),
+        db.import_jobs.clear(),
+      ]);
+    },
+  );
+};
+
 if (import.meta.env.DEV) {
   const windowWithDb = window as Window & { pocketExportDb?: PocketExportDB };
   windowWithDb.pocketExportDb = db;

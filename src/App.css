@@ -762,7 +762,9 @@
 
 .tag-manager,
 .tag-settings,
-.storage-settings {
+.storage-settings,
+.data-settings,
+.about-settings {
   border-radius: 12px;
   border: 1px solid #e3ded7;
   background: #f7f5f2;
@@ -779,14 +781,18 @@
 
 .tag-manager__header h3,
 .tag-settings__header h3,
-.storage-settings__header h3 {
+.storage-settings__header h3,
+.data-settings__header h3,
+.about-settings__header h3 {
   margin: 0;
   font-size: 1.1rem;
 }
 
 .tag-manager__header p,
 .tag-settings__header p,
-.storage-settings__header p {
+.storage-settings__header p,
+.data-settings__header p,
+.about-settings__header p {
   margin: 4px 0 0;
   color: #4a4a4a;
   font-size: 0.95rem;
@@ -937,5 +943,37 @@
 .storage-settings__note {
   margin: 0;
   color: #6b6b6b;
+  font-size: 0.95rem;
+}
+
+.data-settings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.data-settings__button {
+  border-radius: 999px;
+  border: 1px solid #e3ded7;
+  background: #ffffff;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #8a1a1a;
+}
+
+.data-settings__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.data-settings__status {
+  color: #6b6b6b;
+  font-size: 0.95rem;
+}
+
+.data-settings__error {
+  color: #b42318;
   font-size: 0.95rem;
 }

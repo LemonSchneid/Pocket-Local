@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 
-import { createTag, deleteTag, listTags } from "../../db/tags";
 import type { Tag } from "../../db";
+import { clearAllData } from "../../db";
+import { createTag, deleteTag, listTags } from "../../db/tags";
 import { getStoragePersistenceState } from "../../db/settings";
 
 type StorageInfo = {
@@ -20,6 +21,10 @@ function SettingsPage() {
     "unknown" | "granted" | "denied" | "unsupported"
   >("unknown");
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [clearStatus, setClearStatus] = useState<
+    "idle" | "clearing" | "success" | "error"
+  >("idle");
+  const [clearError, setClearError] = useState<string | null>(null);
 
   const loadTags = async () => {
     const items = await listTags();
@@ -140,6 +145,27 @@ function SettingsPage() {
     }
   };
 
+  const handleClearAll = async () => {
+    const confirmed = window.confirm(
+      "This will permanently delete all saved articles, tags, and settings stored on this device.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setClearStatus("clearing");
+    setClearError(null);
+
+    try {
+      await clearAllData();
+      setClearStatus("success");
+      window.location.reload();
+    } catch {
+      setClearError("Unable to clear local data.");
+      setClearStatus("error");
+    }
+  };
+
   return (
     <section className="page">
       <h2>Settings</h2>
@@ -194,6 +220,33 @@ function SettingsPage() {
           </p>
         )}
       </section>
+      <section className="data-settings">
+        <div className="data-settings__header">
+          <h3>Reset data</h3>
+          <p>
+            Remove everything stored locally, including articles, tags, and
+            preferences.
+          </p>
+        </div>
+        <div className="data-settings__actions">
+          <button
+            type="button"
+            className="data-settings__button"
+            onClick={handleClearAll}
+            disabled={clearStatus === "clearing"}
+          >
+            Clear all local data
+          </button>
+          {clearStatus === "clearing" && (
+            <span className="data-settings__status">Clearing…</span>
+          )}
+          {clearStatus === "error" && clearError && (
+            <span className="data-settings__error" role="alert">
+              {clearError}
+            </span>
+          )}
+        </div>
+      </section>
       <section className="tag-settings">
         <div className="tag-settings__header">
           <h3>Manage tags</h3>
@@ -237,6 +290,15 @@ function SettingsPage() {
             ))}
           </ul>
         )}
+      </section>
+      <section className="about-settings">
+        <div className="about-settings__header">
+          <h3>About</h3>
+          <p>
+            Local-first. No server dependency. Everything stays on this device
+            unless you export it.
+          </p>
+        </div>
       </section>
     </section>
   );

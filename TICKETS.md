@@ -441,6 +441,8 @@ Helpers:
 
 **DoD:** Settings fully functional.
 
+**Status:** Complete — added data reset controls and about copy to Settings alongside storage usage.
+
 ---
 
 ### T8.2 — Error handling + logging
