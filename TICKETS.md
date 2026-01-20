@@ -412,6 +412,8 @@ Helpers:
 
 **DoD:** New article appears in library.
 
+**Status:** Complete — added a Library URL capture form that fetches, parses, caches assets, and saves new articles directly.
+
 ---
 
 ### T7.2 — Bookmarklet
